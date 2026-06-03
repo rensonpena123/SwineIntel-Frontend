@@ -2,15 +2,16 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import MainLayout from './components/MainLayout';
+import Inventory from './pages/Inventory';
+import Pens from './pages/Pen';
+import Pigs from './pages/Pig';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  
-  // If no token exists, cleanly redirect back to the root login view
   if (!token) {
     return <Navigate to="/" replace />;
   }
-  
   return children;
 };
 
@@ -18,20 +19,27 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Core Root Path: Displays your custom centered-pig login form */}
+        {/* Public Login Route */}
         <Route path="/" element={<Login />} />
 
-        {/* Secure Dashboard Path: Locked down by our ProtectedRoute shield */}
+        {/* Protected Application Routes Wrapped Inside MainLayout Frame */}
         <Route 
-          path="/dashboard" 
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <MainLayout />
             </ProtectedRoute>
-          } 
-        />
+          }
+        >
+          {/* All pages placed inside here will automatically display the Sidebar! */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          
+          {/* Placeholders for future paths */}
+          <Route path="/inventory" element={<Inventory />} />
+          <Route path="/pens" element={<Pens />} />
+          <Route path="/health" element={<Pigs />} />
+          <Route path="/users" element={<div className="text-2xl font-bold text-slate-800">User Management Coming Soon</div>} />
+        </Route>
 
-        {/* Fallback Guard: Automatically flushes invalid URLs back to root */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
