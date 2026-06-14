@@ -6,6 +6,7 @@ import MainLayout from './components/MainLayout';
 import Inventory from './pages/Inventory';
 import Pens from './pages/Pen';
 import Pigs from './pages/Pig';
+import UserManagement from './pages/UserManagement';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -37,7 +38,7 @@ function App() {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/pens" element={<Pens />} />
           <Route path="/health" element={<Pigs />} />
-          <Route path="/users" element={<div className="text-2xl font-bold text-slate-800">User Management Coming Soon</div>} />
+          <Route path="/users" element={<UserManagement/>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
