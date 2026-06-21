@@ -14,39 +14,41 @@ const Inventory = () => {
 
   // 1. FETCH LIVE INVENTORY FROM MONGO
   const fetchInventory = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await API.get('/feed');
-      // Adapts smoothly if backend returns an array directly or nested inside an object
-      setFeeds(Array.isArray(response.data) ? response.data : response.data.feeds || []);
-    } catch (err) {
-      console.error("Inventory fetch failure:", err);
-      setError('Could not retrieve feed logs from the central server.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        setLoading(true);
+        setError('');
+        const response = await API.get('/feed');
+        // Adapts smoothly if backend returns an array directly or nested inside an object
+        setFeeds(Array.isArray(response.data) ? response.data : response.data.feeds || []);
+      } catch (err) {
+        console.error("Inventory fetch failure:", err);
+        setError('Could not retrieve feed logs from the central server.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
-    fetchInventory();
-  }, []);
+    useEffect(() => {
+      fetchInventory();
+    }, []);
 
-  // 2. LOG NEW SHIPMENT SUBMISSION
+    // LOG NEW SHIPMENT SUBMISSION (Restock Modal Form)
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     try {
       setFormLoading(true);
+      
       const payload = {
         feedType: formData.feedType,
-        currentSacks: Number(formData.currentSacks),
-        lowStockThreshold: Number(formData.lowStockThreshold)
+        sacksAdded: Number(formData.currentSacks), 
+        customThreshold: Number(formData.lowStockThreshold) 
       };
       
-      await API.post('/feed', payload);
+      await API.post('/feed/restock', payload);
+      
       setIsModalOpen(false);
       setFormData({ feedType: '', currentSacks: '', lowStockThreshold: '5' });
-      fetchInventory(); // Reload live metrics
+      fetchInventory(); // Reload table data with fresh counts
     } catch (err) {
       alert(err.response?.data?.message || 'Error updating stock registry.');
     } finally {
@@ -54,22 +56,31 @@ const Inventory = () => {
     }
   };
 
-  // 3. FAST ADJUSTMENT MACRO (Add/Subtract a single sack quickly)
-  const handleQuickAdjust = async (id, currentQty, amount) => {
-    const targetQty = currentQty + amount;
-    if (targetQty < 0) return alert("Stock cannot drop below 0 sacks.");
-    
+  // FAST ADJUSTMENT MACRO (Quick Plus and Minus Buttons)
+  const handleQuickAdjust = async (item, amount) => {
     try {
-      // Optimistic local state adjustment for blazing fast UI feedback loop
-      setFeeds(prev => prev.map(item => item._id === id ? { ...item, currentSacks: targetQty } : item));
+      if (amount === 1) {
+        await API.post('/feed/restock', {
+          feedType: item.feedType,
+          sacksAdded: 1 
+        });
+      } else if (amount === -1) {
+        if (item.currentSacks <= 0) return alert("Stock cannot drop below 0 sacks.");
+        
+        // Look at your backend: withdraw expects 'sacksWithdrawn'
+        await API.put('/feed/withdraw', {
+          feedType: item.feedType,
+          sacksWithdrawn: 1 
+        });
+      }
       
-      // Sync change with backend model route - mapping to your field name 'currentSacks'
-      await API.put(`/feed/${id}`, { currentSacks: targetQty });
+      fetchInventory(); // Refresh the screen metrics
     } catch (err) {
-      console.error("Sync failure:", err);
-      fetchInventory(); // Fallback to raw db record if network error hits
+      alert(err.response?.data?.message || 'Sync failure with bodega server.');
+      fetchInventory();
     }
   };
+
 
   if (loading && feeds.length === 0) {
     return (
@@ -86,7 +97,7 @@ const Inventory = () => {
       {/* Header Panel Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Bodega Inventory</h1>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Piggery Inventory</h1>
           <p className="text-slate-500 text-sm mt-1">Manage feed variants, track threshold safety limits, and log feed adjustments.</p>
         </div>
         <div className="flex space-x-2">
@@ -169,18 +180,16 @@ const Inventory = () => {
                       <td className="px-6 py-4 text-right">
                         <div className="inline-flex items-center space-x-1.5">
                           <button
-                            onClick={() => handleQuickAdjust(item._id, item.currentSacks, -1)}
-                            className="p-1.5 text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 bg-white hover:bg-red-50 rounded-lg transition-all"
-                            title="Log 1 Sack Used"
+                            onClick={() => handleQuickAdjust(item, -1)}
+                            className="p-1.5 text-slate-500 hover:text-red-600 border border-slate-200 bg-white rounded-lg"
                           >
-                            <Minus className="w-4 h-4" strokeWidth={2.5} />
+                            <Minus className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleQuickAdjust(item._id, item.currentSacks, 1)}
-                            className="p-1.5 text-slate-500 hover:text-emerald-600 border border-slate-200 hover:border-emerald-200 bg-white hover:bg-emerald-50 rounded-lg transition-all"
-                            title="Log 1 Sack Restocked"
+                            onClick={() => handleQuickAdjust(item, 1)}
+                            className="p-1.5 text-slate-500 hover:text-emerald-600 border border-slate-200 bg-white rounded-lg"
                           >
-                            <Plus className="w-4 h-4" strokeWidth={2.5} />
+                            <Plus className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
